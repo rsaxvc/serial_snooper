@@ -1,0 +1,4 @@
+1) Install kernel headers
+2) `make`
+3) sudo make test
+
