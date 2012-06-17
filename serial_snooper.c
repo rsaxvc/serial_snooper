@@ -305,7 +305,7 @@ struct path p;
 
 if( !kern_path( target_port, LOOKUP_FOLLOW, &p ) )
 	{
-	if( p.dentry->d_inode->i_fop != &our_fops )
+	if( p.dentry->d_inode->i_fop != &their_fops )
 		{
 		printk( KERN_ALERT " while unregistering, I tried to put the original fops back, but someone else has them overridden too. I'm going to put the originals back anyways, because if I don't we'll probably crash\n");
 		printk( KERN_INFO "current fops:");
