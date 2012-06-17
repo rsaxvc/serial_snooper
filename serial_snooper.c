@@ -61,7 +61,7 @@ MODULE_PARM_DESC( buffer_sz, "number of bytes we'll store for another process be
 
 /*port names*/
 static char * target_ports[ MINOR_COUNT ];/*snooped meta-device*/
-static char * target_port = "/dev/ttyS0";/*actual device*/
+static char * target_port = "/dev/null";/*actual device*/
 module_param( target_port, charp, 0444 );
 MODULE_PARM_DESC( target_port, "Takes the /dev/""* port to mount" );
 
@@ -73,6 +73,8 @@ static int device_release(struct inode * ip, struct file * fp);
 static ssize_t target_read(struct file * fp, char __user * up, size_t sz, loff_t * off);
 static ssize_t target_write(struct file * fp, const char __user * up, size_t sz, loff_t * off);
 static int target_release(struct inode * ip, struct file * fp);
+
+static void print_fops( const struct file_operations * fops );
 
 /*fops*/
 struct file_operations their_fops;
@@ -265,7 +267,6 @@ if( inod == NULL )
 	goto die;
 	}
 
-printk( KERN_INFO "Orig fops read:%x write:%x\n", inod->i_fop->read, inod->i_fop->write );
 
 their_orig_fops = inod->i_fop;
 memcpy( &their_fops, inod->i_fop, sizeof( their_fops ) );
@@ -274,15 +275,27 @@ if( their_fops.write   )their_fops.write   = target_write;
 if( their_fops.release )their_fops.release = target_release;
 inod->i_fop = &their_fops;
 
-printk( KERN_INFO "New fops  read:%x  write:%x\n", inod->i_fop->read, inod->i_fop->write );
-printk( KERN_INFO "New fops aread:%x awrite:%x\n", inod->i_fop->aio_read, inod->i_fop->aio_write );
-printk( KERN_INFO "New fops sread:%x swrite:%x\n", inod->i_fop->splice_read, inod->i_fop->splice_write );
-printk( KERN_INFO "New fops mmap%x\n", inod->i_fop->mmap );
+printk( KERN_INFO "Orig fops:" );
+print_fops( their_orig_fops );
+
+printk( KERN_INFO "New fops:" );
+print_fops( &their_fops );
+
+
 return SUCCESS;
 
 die:
 	cleanup_module();
 	return ERROR;
+}
+
+static void print_fops( const struct file_operations * i_fop )
+{
+printk( KERN_INFO "\tfops location:%x\n", i_fop );
+printk( KERN_INFO "\tread:%x  write:%x\n", i_fop->read, i_fop->write );
+printk( KERN_INFO "\taread:%x awrite:%x\n", i_fop->aio_read, i_fop->aio_write );
+printk( KERN_INFO "\tsread:%x swrite:%x\n", i_fop->splice_read, i_fop->splice_write );
+printk( KERN_INFO "\tmmap: %x\n", i_fop->mmap );
 }
 
 void cleanup_module(void)
@@ -295,6 +308,11 @@ if( !kern_path( target_port, LOOKUP_FOLLOW, &p ) )
 	if( p.dentry->d_inode->i_fop != &our_fops )
 		{
 		printk( KERN_ALERT " while unregistering, I tried to put the original fops back, but someone else has them overridden too. I'm going to put the originals back anyways, because if I don't we'll probably crash\n");
+		printk( KERN_INFO "current fops:");
+		print_fops( p.dentry->d_inode->i_fop );
+
+		printk( KERN_INFO "now putting back:");
+		print_fops( their_orig_fops );
 		}
 	p.dentry->d_inode->i_fop = their_orig_fops;
 	}
